@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -9,19 +11,36 @@ tf.logging.set_verbosity(tf.logging.INFO)
 
 
 def cnn_model_fn(features, labels, mode):
-  """Model function for CNN."""
-  # Input Layer
-  # Reshape X to 4-D tensor: [batch_size, width, height, channels]
-  # MNIST images are 28x28 pixels, and have one color channel
-  # -1 is PLACEHOLDER for batch size. 
-  # If we feed in batches of 5, features["x"] will have dimentions [5,28,28,1]
+  """ Model function for CNN.
+  @ features: Batch of images
+  @ labels: Image labels
+  @ mode: Predict (forward prop), train (update weights)
+  @ Return: Estimator.
+  """
+  
+  """Input Layer
+  Reshape X to 4-D tensor: [batch_size, width, height, channels]
+  MNIST images are 28x28 pixels, and have one color channel
+  -1 is PLACEHOLDER for batch size. 
+  If we feed in batches of 5, features["x"] will have dimentions [5,28,28,1]
+  """
   input_layer = tf.reshape(features["x"], [-1, 28, 28, 1])
 
-  # Convolutional Layer #1
-  # Computes 32 features using a 5x5 filter with ReLU activation.
-  # Padding is added to preserve width and height.
-  # Input Tensor Shape: [batch_size, 28, 28, 1]
-  # Output Tensor Shape: [batch_size, 28, 28, 32]
+  """Convolutional Layer #1
+  Computes 32 features using a 5x5 filter with ReLU activation.
+    ReLU: Nonlinear activation. f(x) = max(0,x)
+  Padding is added to preserve width and height for future filters.
+  Input Tensor Shape: [batch_size, 28, 28, 1]
+  Output Tensor Shape: [batch_size, 28, 28, 32]
+
+  @ inputs: Previous layer, the input layer.
+  @ filters: Number of features to look for.
+  @ kernel_size: Size of the filter.
+  @ padding: Keep the same dimentions. 
+  @ activation: Activation function. We choose nonlinear for convolutional layers
+      so that our final model is not linear.
+  @ Return: tensorflow layer
+  """
   conv1 = tf.layers.conv2d(
       inputs=input_layer,
       filters=32,
@@ -29,43 +48,57 @@ def cnn_model_fn(features, labels, mode):
       padding="same",
       activation=tf.nn.relu)
 
-  # Pooling Layer #1
-  # First max pooling layer with a 2x2 filter and stride of 2
-  # Input Tensor Shape: [batch_size, 28, 28, 32]
-  # Output Tensor Shape: [batch_size, 14, 14, 32]
+  """Pooling Layer #1
+  First max pooling layer with a 2x2 filter and stride of 2
+  Input Tensor Shape: [batch_size, 28, 28, 32]
+  Output Tensor Shape: [batch_size, 14, 14, 32]
+
+  @ pool_size: size of the filter
+  @ strides: number of steps from one filter to next. In this case, we cover
+      every node with no overlap.
+  """
   pool1 = tf.layers.max_pooling2d(inputs=conv1, pool_size=[2, 2], strides=2)
 
-  # Convolutional Layer #2
-  # Computes 64 features using a 5x5 filter.
-  # Padding is added to preserve width and height.
-  # Input Tensor Shape: [batch_size, 14, 14, 32]
-  # Output Tensor Shape: [batch_size, 14, 14, 64]
+  """Convolutional Layer #2
+  Computes 64 features using a 5x5 filter.
+  Padding is added to preserve width and height.
+  Input Tensor Shape: [batch_size, 14, 14, 32]
+  Output Tensor Shape: [batch_size, 14, 14, 64]
+  """
   conv2 = tf.layers.conv2d(
       inputs=pool1,
-      filters=64,  # Each filter looks for something different
+      filters=64,
       kernel_size=[5, 5],
       padding="same",
       activation=tf.nn.relu)
 
-  # Pooling Layer #2
-  # Second max pooling layer with a 2x2 filter and stride of 2
-  # Input Tensor Shape: [batch_size, 14, 14, 64]
-  # Output Tensor Shape: [batch_size, 7, 7, 64]
+  """Pooling Layer #2
+  Second max pooling layer with a 2x2 filter and stride of 2
+  Input Tensor Shape: [batch_size, 14, 14, 64]
+  Output Tensor Shape: [batch_size, 7, 7, 64]
+  """
   pool2 = tf.layers.max_pooling2d(inputs=conv2, pool_size=[2, 2], strides=2)
 
-  # Flatten tensor into a batch of vectors
-  # Input Tensor Shape: [batch_size, 7, 7, 64]
-  # Output Tensor Shape: [batch_size, 7 * 7 * 64]
+  """Flatten tensor into a batch of vectors
+  Input Tensor Shape: [batch_size, 7, 7, 64]
+  Output Tensor Shape: [batch_size, 7 * 7 * 64]
+  """
   pool2_flat = tf.reshape(pool2, [-1, 7 * 7 * 64])
 
-  # Dense Layer
-  # Densely connected layer with 1024 neurons
-  # Input Tensor Shape: [batch_size, 7 * 7 * 64]
-  # Output Tensor Shape: [batch_size, 1024]
+  """Dense Layer
+  Densely connected layer with 1024 neurons
+  Input Tensor Shape: [batch_size, 7 * 7 * 64]
+  Output Tensor Shape: [batch_size, 1024]
+  """
   dense = tf.layers.dense(inputs=pool2_flat, units=1024, activation=tf.nn.relu)
 
-  # Add dropout operation; 0.6 probability that element will be kept
-  # Reduce over-fitting
+  """Dropout Layer
+  Add dropout operation; 0.6 probability that element will be kept
+  Reduce over-fitting
+
+  @ rate: Probability that an element will be dropped.
+  @ training: Boolean. Only drops if in training mode.
+  """
   dropout = tf.layers.dropout(
       inputs=dense, rate=0.4, training=mode == tf.estimator.ModeKeys.TRAIN)
 
